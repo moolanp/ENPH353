@@ -23,7 +23,7 @@ width = 1280
 ###############################################
 #Paul Moolan, Steven Brown
 
-team_ID = '01234567,'
+team_ID = '20062506,'
 password = 'password,'
 
 ###############################################
@@ -38,18 +38,23 @@ def image_callback(msg):
 	else:
 		cv2.imwrite('camera_image.jpeg', cv2_img)
 
-	gray = cv2.cvtColor(cv2_img,cv2.COLOR_BGR2GRAY)
 
-	#Find color of road and blur to remove noise, find xcm,ycm of road
-	mask5 = cv2.inRange(gray, 82,85)
-	m5 = cv2.medianBlur(src= mask5, ksize=9)
-	road_xcm, road_ycm = centerOfMass(m5,0.05)
+	if(checkRed(cv2_img)):
+		#Hits Crosswalk-check for pedestrian,
+		print("Red")
+		move_bot(x=0.2,y=0,z=0)
+		
 
-	error = (width/2 - road_xcm)
-	turn =error*0.0014
-	linear = 0.1-0.00027*error
-	move_bot(x=linear,y=0,z=turn)
+	else:
+		gray = cv2.cvtColor(cv2_img,cv2.COLOR_BGR2GRAY)
+		crop_img= gray[(int)(0):height, 640:]
+		mask3 = cv2.inRange(crop_img, 250, 255)
+		xcm,ycm = centerOfMass(mask3)
+		error = 380-xcm
 
+		linear = 0.1-0.00035*error
+		turn = 0.001*error
+		move_bot(x=linear,y=0,z=turn)
 
 #MOVEMENT
 
@@ -79,29 +84,26 @@ def turn90(CCW):
 		move_bot()
 
 #Requires a grayscale thresholded image(ie black and white pixels)
-def centerOfMass(grayImg,scale_factor):
-	scaled_down = cv2.resize(grayImg, None, fx= scale_factor, fy= scale_factor, interpolation= cv2.INTER_LINEAR)
-	height,width = scaled_down.shape
-
-	count = 0
-	xcm = 0
-	ycm = 0
-
-	for j in range(height):
-		for i in range(width):
-			if(scaled_down[j][i]==255):
-				xcm+=i
-				ycm+=j
-				count+=1
-
-	if(count == 0):
+def centerOfMass(grayImg):
+	mass_x, mass_y = np.where(grayImg == 255)
+	cent_y = np.average(mass_x)
+	cent_x = np.average(mass_y)
+	
+	if(np.sum(grayImg == 255) == 0):
 		print("No white pixels in image")
 		return
 
-	xcm = (int)(xcm/(count*scale_factor))
-	ycm = (int)(ycm/(count*scale_factor))
-	#plt.imshow(scaled_down,cmap='Greys_r')
-	return(xcm,ycm)
+	return((int)(cent_x),(int)(cent_y))
+
+def checkRed(img_color):
+	mask3 = cv2.inRange(img_color, (0,0,255), (0,0,255))
+	red_pix = np.sum(mask3 == 255)
+
+	if(red_pix >= 50):
+		return True
+	else:
+		return False
+		
 
 
 #MAIN
