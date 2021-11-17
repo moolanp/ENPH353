@@ -14,6 +14,8 @@ rate = rospy.Rate(1)
 pub = rospy.Publisher('/R1/cmd_vel', Twist, queue_size=1)
 license_plate_pub = rospy.Publisher('/license_plate', String, queue_size=1)
 
+clock_wise = True
+
 bridge = CvBridge()
 
 height = 720
@@ -40,8 +42,10 @@ def image_callback(msg):
 
 
 	if(checkRed(cv2_img)):
+		# move_bot(x=0,y=0,z=0)
+		stop()
 		#Hits Crosswalk-check for pedestrian,
-		print("Red")
+		# print("Red")
 		move_bot(x=0.2,y=0,z=0)
 		
 
@@ -50,11 +54,24 @@ def image_callback(msg):
 		crop_img= gray[(int)(0):height, 640:]
 		mask3 = cv2.inRange(crop_img, 250, 255)
 		xcm,ycm = centerOfMass(mask3)
-		error = 380-xcm
 
-		linear = 0.1-0.00035*error
-		turn = 0.001*error
-		move_bot(x=linear,y=0,z=turn)
+		if(xcm == 99999 and ycm == 99999):
+			if(clock_wise):
+				move_bot(x=0,y=0,z=-0.5)
+			else:
+				move_bot(x=0,y=0,z=0.5)
+
+		else:
+			error = 380-xcm
+			global clock_wise
+			if(error<0):
+				clock_wise = True
+			else:
+				clock_wise = False
+
+			linear = 0.4-0.001*error
+			turn = 0.007*error
+			move_bot(x=linear,y=0,z=turn)
 
 #MOVEMENT
 
@@ -91,7 +108,7 @@ def centerOfMass(grayImg):
 	
 	if(np.sum(grayImg == 255) == 0):
 		print("No white pixels in image")
-		return
+		return (99999,99999)
 
 	return((int)(cent_x),(int)(cent_y))
 
@@ -99,7 +116,7 @@ def checkRed(img_color):
 	mask3 = cv2.inRange(img_color, (0,0,255), (0,0,255))
 	red_pix = np.sum(mask3 == 255)
 
-	if(red_pix >= 50):
+	if(red_pix >= 1200):
 		return True
 	else:
 		return False
@@ -113,6 +130,8 @@ def stop():
 	move_bot(0,0,0)
 	license_plate_pub.publish(team_ID + password + '-1,' + 'ABCD')
 	rospy.sleep(1)
+
+
 
 def main():
 
