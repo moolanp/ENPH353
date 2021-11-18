@@ -42,11 +42,12 @@ def image_callback(msg):
 
 
 	if(checkRed(cv2_img)):
-		# move_bot(x=0,y=0,z=0)
-		stop()
-		#Hits Crosswalk-check for pedestrian,
-		# print("Red")
-		move_bot(x=0.2,y=0,z=0)
+		person = checkPerson(cv2_img)
+		print(person)
+		move_bot(x=0,y=0,z=0)
+		if(person):
+			move_bot(x=0.4,y=0,z=0)
+			rospy.sleep(0.5)
 		
 
 	else:
@@ -120,9 +121,21 @@ def checkRed(img_color):
 		return True
 	else:
 		return False
+
+def checkPerson(img_color):
+	# width = 1280, height = 720
+	imgCrop = img_color[410:480 , 560:760]
+	#cv2.imwrite('/home/fizzer/Desktop/CROPPEDimage1.png', imgCrop)  
+	maskPants = cv2.inRange(imgCrop, (50,0,0), (55,50,50))
+	blue_pix = np.sum(maskPants == 255)
+	move_bot(x=0,y=0,z=0)
+
+	if(blue_pix >= 10):
+		return True
+	else:
+		return False
+
 		
-
-
 #MAIN
 
 #Stop bot and send -1st License Plate
@@ -130,8 +143,6 @@ def stop():
 	move_bot(0,0,0)
 	license_plate_pub.publish(team_ID + password + '-1,' + 'ABCD')
 	rospy.sleep(1)
-
-
 
 def main():
 
