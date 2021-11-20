@@ -21,6 +21,9 @@ bridge = CvBridge()
 height = 720
 width = 1280
 
+#Used for printing multiple images to desktop
+number = 0
+
 
 ###############################################
 #Paul Moolan, Steven Brown
@@ -41,17 +44,19 @@ def image_callback(msg):
 		cv2.imwrite('camera_image.jpeg', cv2_img)
 
 
+	gray = cv2.cvtColor(cv2_img,cv2.COLOR_BGR2GRAY)
+
+	#Check for Pedestrian/Crosswalk
 	if(checkRed(cv2_img)):
 		person = checkPerson(cv2_img)
-		print(person)
+		# print(person)
 		move_bot(x=0,y=0,z=0)
 		if(person):
 			move_bot(x=0.4,y=0,z=0)
 			rospy.sleep(0.5)
 		
-
+	#PID Drive - (Currently Outer Loop Only)		
 	else:
-		gray = cv2.cvtColor(cv2_img,cv2.COLOR_BGR2GRAY)
 		crop_img= gray[(int)(0):height, 640:]
 		mask3 = cv2.inRange(crop_img, 250, 255)
 		xcm,ycm = centerOfMass(mask3)
@@ -74,6 +79,55 @@ def image_callback(msg):
 			turn = 0.007*error
 			move_bot(x=linear,y=0,z=turn)
 
+	#Check for plates in image
+	if(np.sum(gray==0) > 10):
+		#Find CM of P(1-6) Pixels
+		mask = cv2.inRange(gray,0,0)
+		print(np.sum(mask==255))
+		x,y = centerOfMass(mask)
+
+		#Masks Blue(Bright and Dark) then blurs to remove noise
+		maskblue = cv2.inRange(cv2_img, (100, 0, 0), (255, 100, 100))
+		mblue = cv2.medianBlur(maskblue,7)
+		xleft = 0
+		xright = 0
+		ytop = 0
+		ybot = 0
+
+		#Calculates boundaries of plate
+		for i in range(x,0,-1):
+			if(mblue[y][i] == 255):
+				xleft = i
+				break
+
+		for i in range(x,width):
+			if(mblue[y][i] == 255):
+				xright = i
+				break
+
+		for j in range(y,0,-1):
+			if(mblue[j][xright+5] != 255):
+				ytop = j
+				break
+
+		for j in range(y,height):
+			if(mblue[j][xright+5] != 255):
+				ybot = j
+				break
+
+		#Draws a circle on each boundary to test and prints all plates to desktop to be checked
+		if(xleft != 0 and xright != 0 and ytop != 0 and ybot !=0):
+			cv2.circle(cv2_img,(xleft,y), 10, (0,0,255),-1)
+			cv2.circle(cv2_img,(xright,y), 10, (0,0,255),-1)
+			cv2.circle(cv2_img,(x,y), 10, (0,0,255),-1)
+			cv2.circle(cv2_img,(x,ytop), 10, (0,0,255),-1)
+			cv2.circle(cv2_img,(x,ybot), 10, (0,0,255),-1)
+
+			cv2.imwrite('/home/fizzer/Desktop/CROPPEDimage{:03d}.png'.format(number), cv2_img)
+			global number
+			number += 1   
+
+
 #MOVEMENT
 
 def move_bot(x=0, y=0, z=0):
@@ -83,7 +137,6 @@ def move_bot(x=0, y=0, z=0):
 	move.angular.z = z
 	pub.publish(move)
 
-  
 def orient_from_start_into_outer_loop():
 	move_bot(x=0.15,y=0,z=0)
 	rospy.sleep(2.3)
@@ -164,4 +217,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
