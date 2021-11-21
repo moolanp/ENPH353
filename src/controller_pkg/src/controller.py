@@ -7,6 +7,7 @@ import cv2
 from geometry_msgs.msg import Twist
 from std_msgs.msg import String
 import numpy as np
+import imutils
 
 rospy.init_node('topic_publisher')
 rate = rospy.Rate(1)
@@ -21,7 +22,7 @@ bridge = CvBridge()
 height = 720
 width = 1280
 
-#Used for printing multiple images to desktop
+#Used for printing multiple images to desktop - only utilized during testing
 number = 0
 
 
@@ -49,7 +50,6 @@ def image_callback(msg):
 	#Check for Pedestrian/Crosswalk
 	if(checkRed(cv2_img)):
 		person = checkPerson(cv2_img)
-		# print(person)
 		move_bot(x=0,y=0,z=0)
 		if(person):
 			move_bot(x=0.4,y=0,z=0)
@@ -75,15 +75,15 @@ def image_callback(msg):
 			else:
 				clock_wise = False
 
-			linear = 0.4-0.001*error
-			turn = 0.007*error
+			linear = 0.5-0.0015*error
+			turn = 0.0085*error
 			move_bot(x=linear,y=0,z=turn)
 
 	#Check for plates in image
 	if(np.sum(gray==0) > 10):
 		#Find CM of P(1-6) Pixels
 		mask = cv2.inRange(gray,0,0)
-		print(np.sum(mask==255))
+		# print(np.sum(mask==255))
 		x,y = centerOfMass(mask)
 
 		#Masks Blue(Bright and Dark) then blurs to remove noise
@@ -115,20 +115,15 @@ def image_callback(msg):
 				ybot = j
 				break
 
-		#Draws a circle on each boundary to test and prints all plates to desktop to be checked
+		#Segments plates into chars and saves to desktop
 		if(xleft != 0 and xright != 0 and ytop != 0 and ybot !=0):
-			cv2.circle(cv2_img,(xleft,y), 10, (0,0,255),-1)
-			cv2.circle(cv2_img,(xright,y), 10, (0,0,255),-1)
-			cv2.circle(cv2_img,(x,y), 10, (0,0,255),-1)
-			cv2.circle(cv2_img,(x,ytop), 10, (0,0,255),-1)
-			cv2.circle(cv2_img,(x,ybot), 10, (0,0,255),-1)
+			crop_plate= cv2_img[ytop:ybot, xleft:xright]
+			segment_chars(crop_plate)
+  
 
-			cv2.imwrite('/home/fizzer/Desktop/CROPPEDimage{:03d}.png'.format(number), cv2_img)
-			global number
-			number += 1   
-
-
+##########
 #MOVEMENT
+##########
 
 def move_bot(x=0, y=0, z=0):
 	move = Twist()
@@ -153,6 +148,10 @@ def turn90(CCW):
 		move_bot(x=0,y=0,z=-0.85)
 		rospy.sleep(2.2)
 		move_bot()
+
+#######
+#IMAGE
+#######
 
 #Requires a grayscale thresholded image(ie black and white pixels)
 def centerOfMass(grayImg):
@@ -188,8 +187,44 @@ def checkPerson(img_color):
 	else:
 		return False
 
+def segment_chars(plate):
+
+	#This bit catches any non-plate images that crept in
+	height_initial, w, c = plate.shape
+	if(height_initial<50):
+		return
+
+	#Resizes image, gives better resolution for viewing cropped segments
+	thresh =imutils.resize(plate, width=400)
+	height_plate, width_plate,channels = thresh.shape
+	
+	#Manual crop based on ratios of char location
+	crop_thresh2 = thresh[0:height_plate,(int)(width_plate/2):width_plate]
+	crop_thresh1 = thresh[0:height_plate,0:(int)(width_plate/2)]
+
+	char1 = crop_thresh1[(int)(65*height_plate/100):height_plate,0:(int)(width_plate/4)]
+	char2 = crop_thresh1[(int)(65*height_plate/100):height_plate,(int)(width_plate/4):(int)(width_plate/2)]
+	char3 = crop_thresh2[(int)(65*height_plate/100):height_plate,0:(int)(width_plate/4)]
+	char4 = crop_thresh2[(int)(65*height_plate/100):height_plate,(int)(width_plate/4):(int)(width_plate/2)]
+
+	parkingNumber = thresh[(int)(35*height_plate/100):(int)(65*height_plate/100),(int)(width_plate/2):width_plate]
+
+	#Currently only saves to desktop, need to feed segemented chars into CNN
+	#Uncomment below to see chars as well  
+
+	global number
+	cv2.imwrite('/home/fizzer/Desktop/plate{:03d}.png'.format(number), plate) 
+	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char1.png'.format(number), char1)
+	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char2.png'.format(number), char2)
+	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char3.png'.format(number), char3)
+	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char4.png'.format(number), char4) 
+	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}parkingnum.png'.format(number), parkingNumber)
+	number += 1 
+
 		
-#MAIN
+##########
+#MAIN LOOP
+##########
 
 #Stop bot and send -1st License Plate
 def stop():
@@ -198,8 +233,7 @@ def stop():
 	rospy.sleep(1)
 
 def main():
-
-	#Start and send 0th License Plate
+	#Start - Send 0th License Plate
 	rate.sleep()
 	license_plate_pub.publish(team_ID + password + '0,' + 'ABCD')
 
@@ -208,7 +242,7 @@ def main():
 	orient_from_start_into_outer_loop()
 
 	#DO STUFF AND GET LICENSE PLATES
-	rospy.sleep(2)
+	rospy.sleep(1)
 	rospy.Subscriber("/R1/pi_camera/image_raw", Image, image_callback)
 	rospy.spin()
 	
