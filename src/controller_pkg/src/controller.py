@@ -209,15 +209,21 @@ def segment_chars(plate):
 
 	parkingNumber = thresh[(int)(35*height_plate/100):(int)(65*height_plate/100),(int)(width_plate/2):width_plate]
 
+	char1_resize = cv2.resize(char1, (150,270), interpolation= cv2.INTER_LINEAR)
+	char2_resize = cv2.resize(char2, (150,270), interpolation= cv2.INTER_LINEAR)
+	char3_resize = cv2.resize(char3, (150,270), interpolation= cv2.INTER_LINEAR)
+	char4_resize = cv2.resize(char4, (150,270), interpolation= cv2.INTER_LINEAR)
+
+
 	#Currently only saves to desktop, need to feed segemented chars into CNN
 	#Uncomment below to see chars as well  
 
 	global number
 	cv2.imwrite('/home/fizzer/Desktop/plate{:03d}.png'.format(number), plate) 
-	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char1.png'.format(number), char1)
-	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char2.png'.format(number), char2)
-	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char3.png'.format(number), char3)
-	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char4.png'.format(number), char4) 
+	cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char1.png'.format(number), char1_resize)
+	cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char2.png'.format(number), char2_resize)
+	cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char3.png'.format(number), char3_resize)
+	cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char4.png'.format(number), char4_resize) 
 	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}parkingnum.png'.format(number), parkingNumber)
 	number += 1 
 
