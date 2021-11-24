@@ -80,7 +80,7 @@ def image_callback(msg):
 			move_bot(x=linear,y=0,z=turn)
 
 	#Check for plates in image
-	if(np.sum(gray==0) > 10):
+	if(np.sum(gray==0) > 5):
 		#Find CM of P(1-6) Pixels
 		mask = cv2.inRange(gray,0,0)
 		# print(np.sum(mask==255))
@@ -220,10 +220,10 @@ def segment_chars(plate):
 
 	global number
 	cv2.imwrite('/home/fizzer/Desktop/plate{:03d}.png'.format(number), plate) 
-	cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char1.png'.format(number), char1_resize)
-	cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char2.png'.format(number), char2_resize)
-	cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char3.png'.format(number), char3_resize)
-	cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char4.png'.format(number), char4_resize) 
+	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char1.png'.format(number), char1_resize)
+	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char2.png'.format(number), char2_resize)
+	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char3.png'.format(number), char3_resize)
+	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char4.png'.format(number), char4_resize) 
 	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}parkingnum.png'.format(number), parkingNumber)
 	number += 1 
 
