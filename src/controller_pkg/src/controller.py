@@ -8,6 +8,11 @@ from geometry_msgs.msg import Twist
 from std_msgs.msg import String
 import numpy as np
 import imutils
+from tensorflow.keras import models
+from tensorflow.keras import backend
+
+import tensorflow as tf
+graph = tf.get_default_graph()
 
 rospy.init_node('topic_publisher')
 rate = rospy.Rate(1)
@@ -24,6 +29,12 @@ width = 1280
 
 #Used for printing multiple images to desktop - only utilized during testing
 number = 0
+
+# Parking Number Spot
+Pspot = 2
+
+# Load CNN Model
+conv_model = models.load_model('/home/fizzer/ros_ws/src/cnn_trainer/Models/my_model.h5')
 
 
 ###############################################
@@ -187,6 +198,15 @@ def checkPerson(img_color):
 	else:
 		return False
 
+def convertBack(Y_set):
+	L = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R',
+	'S','T','U','V','W','X','Y','Z','0','1','2','3','4','5','6','7','8','9']
+	Y_new = []
+	for vec in Y_set:
+		x = np.argmax(vec)
+		Y_new.append(L[x])
+	return Y_new
+
 def segment_chars(plate):
 
 	#This bit catches any non-plate images that crept in
@@ -209,23 +229,53 @@ def segment_chars(plate):
 
 	parkingNumber = thresh[(int)(35*height_plate/100):(int)(65*height_plate/100),(int)(width_plate/2):width_plate]
 
-	char1_resize = cv2.resize(char1, (150,270), interpolation= cv2.INTER_LINEAR)
-	char2_resize = cv2.resize(char2, (150,270), interpolation= cv2.INTER_LINEAR)
-	char3_resize = cv2.resize(char3, (150,270), interpolation= cv2.INTER_LINEAR)
-	char4_resize = cv2.resize(char4, (150,270), interpolation= cv2.INTER_LINEAR)
+	char1_resize = cv2.resize(char1, (75,135), interpolation= cv2.INTER_LINEAR)
+	char2_resize = cv2.resize(char2, (75,135), interpolation= cv2.INTER_LINEAR)
+	char3_resize = cv2.resize(char3, (75,135), interpolation= cv2.INTER_LINEAR)
+	char4_resize = cv2.resize(char4, (75,135), interpolation= cv2.INTER_LINEAR)
+
+	X_dataset_orig = []
+	X_dataset_orig.append(char1_resize)
+	X_dataset_orig.append(char2_resize)
+	X_dataset_orig.append(char3_resize)
+	X_dataset_orig.append(char4_resize)
+
+	X_dataset = np.array(X_dataset_orig)/255.
+
+	#(4, 135, 75, 3)
+	print(type(X_dataset))
+	print(X_dataset.shape)
+
+	global conv_model
+	with graph.as_default():
+		y_pred = conv_model.predict(X_dataset)
+	y_pred_as_char = convertBack(y_pred)
+
+	send_plates(y_pred_as_char)
 
 
 	#Currently only saves to desktop, need to feed segemented chars into CNN
 	#Uncomment below to see chars as well  
 
 	global number
-	cv2.imwrite('/home/fizzer/Desktop/plate{:03d}.png'.format(number), plate) 
+	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}.png'.format(number), plate) 
 	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char1.png'.format(number), char1_resize)
 	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char2.png'.format(number), char2_resize)
 	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char3.png'.format(number), char3_resize)
 	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char4.png'.format(number), char4_resize) 
 	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}parkingnum.png'.format(number), parkingNumber)
 	number += 1 
+
+	def send_plates(chars):
+		plateSTR = ""
+		global Pspot
+		for i in range(0, len(chars)):
+			plateSTR.append(str(chars[i])) 
+		#license_plate_pub.publish(team_ID + password + str(Pspot) + plateSTR)
+		print(team_ID + password + str(Pspot) + plateSTR)
+		Pspot += 1
+		if(Pspot == 7):
+			Pspot = 1
 
 		
 ##########
