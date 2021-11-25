@@ -14,6 +14,16 @@ from tensorflow.keras import models
 from tensorflow.python.keras.backend import set_session
 from tensorflow.python.keras.models import load_model
 
+#Used to generate images#######
+import time
+import csv
+rows = []
+global start_time
+#Used for printing multiple images to desktop - only utilized during testing
+number = 1
+num2 = 0
+#######################
+
 sess1 = tf.Session()    
 graph1 = tf.get_default_graph()
 set_session(sess1)
@@ -24,15 +34,11 @@ rate = rospy.Rate(1)
 pub = rospy.Publisher('/R1/cmd_vel', Twist, queue_size=1)
 license_plate_pub = rospy.Publisher('/license_plate', String, queue_size=1)
 
-clock_wise = True
-
 bridge = CvBridge()
 
+clock_wise = True
 height = 720
 width = 1280
-
-#Used for printing multiple images to desktop - only utilized during testing
-number = 0
 
 # Parking Number Spot
 Pspot = 2
@@ -59,7 +65,6 @@ def image_callback(msg):
 	else:
 		cv2.imwrite('camera_image.jpeg', cv2_img)
 
-
 	gray = cv2.cvtColor(cv2_img,cv2.COLOR_BGR2GRAY)
 
 	#Check for Pedestrian/Crosswalk
@@ -67,8 +72,8 @@ def image_callback(msg):
 		person = checkPerson(cv2_img)
 		move_bot(x=0,y=0,z=0)
 		if(person):
-			move_bot(x=0.4,y=0,z=0)
-			rospy.sleep(0.3)
+			move_bot(x=0.5,y=0,z=0)
+			rospy.sleep(0.5)
 		
 	#PID Drive - (Currently Outer Loop Only)		
 	else:
@@ -239,38 +244,49 @@ def segment_chars(plate):
 	char3_resize = cv2.resize(char3, (75,135), interpolation= cv2.INTER_LINEAR)
 	char4_resize = cv2.resize(char4, (75,135), interpolation= cv2.INTER_LINEAR)
 
-	X_dataset_orig = []
-	X_dataset_orig.append(char1_resize)
-	X_dataset_orig.append(char2_resize)
-	X_dataset_orig.append(char3_resize)
-	X_dataset_orig.append(char4_resize)
+	# X_dataset_orig = []
+	# X_dataset_orig.append(char1_resize)
+	# X_dataset_orig.append(char2_resize)
+	# X_dataset_orig.append(char3_resize)
+	# X_dataset_orig.append(char4_resize)
 
-	X_dataset = np.array(X_dataset_orig)/255.
-	print(len(X_dataset))
+	# X_dataset = np.array(X_dataset_orig)/255.
+	# print(len(X_dataset))
 
-	global conv_model
-	global sess1
-	global graph1
-	with graph1.as_default():
-   		set_session(sess1)
-		y_pred = conv_model.predict(X_dataset)
-		print(len(y_pred))
-	y_pred_as_char = convertBack(y_pred)
+	# global conv_model
+	# global sess1
+	# global graph1
+	# with graph1.as_default():
+ #   		set_session(sess1)
+	# 	y_pred = conv_model.predict(X_dataset)
+	# 	print(len(y_pred))
+	# y_pred_as_char = convertBack(y_pred)
 
-	send_plates(y_pred_as_char)
+	# send_plates(y_pred_as_char)
 
 
-	#Currently only saves to desktop, need to feed segemented chars into CNN
-	#Uncomment below to see chars as well  
-
+	##########################
 	global number
-	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}.png'.format(number), plate) 
-	cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char1.png'.format(number), char1_resize)
-	cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char2.png'.format(number), char2_resize)
-	cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char3.png'.format(number), char3_resize)
-	cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char4.png'.format(number), char4_resize) 
+	global num2
+	try:
+		if(time.time()-start_time>2):
+			number += 1
+			if(number == 6):
+				number = 0
+	except NameError:
+		print()
+
+	cv2.imwrite('/home/fizzer/Desktop/P{:01d}'.format(number+1)+str(rows[number])[2:6]+'{:01d}.png'.format(num2), plate) 
+	global start_time
+	start_time = time.time()
+
+	############################
+
+	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char1.png'.format(number), char1_resize)
+	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char2.png'.format(number), char2_resize)
+	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char3.png'.format(number), char3_resize)
+	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char4.png'.format(number), char4_resize) 
 	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}parkingnum.png'.format(number), parkingNumber)
-	number += 1 
 
 def send_plates(chars):
 	plateSTR = ""
@@ -296,6 +312,20 @@ def stop():
 	rospy.sleep(1)
 
 def main():
+
+	#####################################
+	global rows
+	with open("/home/fizzer/ros_ws/src/2020_competition/enph353/enph353_gazebo/scripts/plates.csv", 'r') as file:
+		csvreader = csv.reader(file)
+		i=0
+		for row in csvreader:
+			rows.append(row)
+			i+=1
+			if(i == 6):
+				break
+	print(rows)
+	#######################################
+
 	#Start - Send 0th License Plate
 	rate.sleep()
 	license_plate_pub.publish(team_ID + password + '0,' + 'ABCD')
