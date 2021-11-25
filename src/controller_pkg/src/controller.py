@@ -8,11 +8,15 @@ from geometry_msgs.msg import Twist
 from std_msgs.msg import String
 import numpy as np
 import imutils
-from tensorflow.keras import models
-from tensorflow.keras import backend
 
 import tensorflow as tf
-graph = tf.get_default_graph()
+from tensorflow.keras import models
+from tensorflow.python.keras.backend import set_session
+from tensorflow.python.keras.models import load_model
+
+sess1 = tf.Session()    
+graph1 = tf.get_default_graph()
+set_session(sess1)
 
 rospy.init_node('topic_publisher')
 rate = rospy.Rate(1)
@@ -64,7 +68,7 @@ def image_callback(msg):
 		move_bot(x=0,y=0,z=0)
 		if(person):
 			move_bot(x=0.4,y=0,z=0)
-			rospy.sleep(0.5)
+			rospy.sleep(0.3)
 		
 	#PID Drive - (Currently Outer Loop Only)		
 	else:
@@ -202,6 +206,7 @@ def convertBack(Y_set):
 	L = ['A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R',
 	'S','T','U','V','W','X','Y','Z','0','1','2','3','4','5','6','7','8','9']
 	Y_new = []
+	print(Y_set)
 	for vec in Y_set:
 		x = np.argmax(vec)
 		Y_new.append(L[x])
@@ -241,14 +246,15 @@ def segment_chars(plate):
 	X_dataset_orig.append(char4_resize)
 
 	X_dataset = np.array(X_dataset_orig)/255.
-
-	#(4, 135, 75, 3)
-	print(type(X_dataset))
-	print(X_dataset.shape)
+	print(len(X_dataset))
 
 	global conv_model
-	with graph.as_default():
+	global sess1
+	global graph1
+	with graph1.as_default():
+   		set_session(sess1)
 		y_pred = conv_model.predict(X_dataset)
+		print(len(y_pred))
 	y_pred_as_char = convertBack(y_pred)
 
 	send_plates(y_pred_as_char)
@@ -259,23 +265,24 @@ def segment_chars(plate):
 
 	global number
 	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}.png'.format(number), plate) 
-	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char1.png'.format(number), char1_resize)
-	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char2.png'.format(number), char2_resize)
-	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char3.png'.format(number), char3_resize)
-	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char4.png'.format(number), char4_resize) 
+	cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char1.png'.format(number), char1_resize)
+	cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char2.png'.format(number), char2_resize)
+	cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char3.png'.format(number), char3_resize)
+	cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char4.png'.format(number), char4_resize) 
 	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}parkingnum.png'.format(number), parkingNumber)
 	number += 1 
 
-	def send_plates(chars):
-		plateSTR = ""
-		global Pspot
-		for i in range(0, len(chars)):
-			plateSTR.append(str(chars[i])) 
-		#license_plate_pub.publish(team_ID + password + str(Pspot) + plateSTR)
-		print(team_ID + password + str(Pspot) + plateSTR)
-		Pspot += 1
-		if(Pspot == 7):
-			Pspot = 1
+def send_plates(chars):
+	plateSTR = ""
+	print(chars)
+	# global Pspot
+	# for i in range(0, len(chars)):
+	# 	plateSTR = plateSTR + str(chars[i])
+	# 	#license_plate_pub.publish(team_ID + password + str(Pspot) + plateSTR)
+	# Pspot += 1
+	# if(Pspot == 7):
+	# 	Pspot = 1
+	print(team_ID + password + str(Pspot) + plateSTR)
 
 		
 ##########
