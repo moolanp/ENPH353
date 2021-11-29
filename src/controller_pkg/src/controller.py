@@ -25,6 +25,8 @@ num2 = 0
 #######################
 
 start_sim = time.time()
+outerLoop = True
+in_inner_loop = False
 
 sess1 = tf.Session()    
 graph1 = tf.get_default_graph()
@@ -73,71 +75,80 @@ def image_callback(msg):
 		if(person):
 			move_bot(x=0.5,y=0,z=0)
 			rospy.sleep(0.5)
-		
-	#PID Drive - (Currently Outer Loop Only)		
+
 	else:
-		crop_img= gray[(int)(0):height, 640:]
-		mask3 = cv2.inRange(crop_img, 250, 255)
-		xcm,ycm = centerOfMass(mask3)
 
-		if(xcm == 99999 and ycm == 99999):
-			if(clock_wise):
-				move_bot(x=0,y=0,z=-0.5)
+		#If true do PID for outer loop, else inner loop
+		global outerLoop
+		
+		#PID Drive - (Outer)		
+		if(outerLoop):
+			crop_img= gray[(int)(0):height, 640:]
+			mask3 = cv2.inRange(crop_img, 250, 255)
+			xcm,ycm = centerOfMass(mask3)
+
+			if(xcm == 99999 and ycm == 99999):
+				if(clock_wise):
+					move_bot(x=0,y=0,z=-0.5)
+				else:
+					move_bot(x=0,y=0,z=0.5)
+
 			else:
-				move_bot(x=0,y=0,z=0.5)
+				error = 380-xcm
+				global clock_wise
+				if(error<0):
+					clock_wise = True
+				else:
+					clock_wise = False
 
+				linear = 0.5-0.0015*error
+				turn = 0.0085*error
+				move_bot(x=linear,y=0,z=turn)
+		
+		#Inner Loop
 		else:
-			error = 380-xcm
-			global clock_wise
-			if(error<0):
-				clock_wise = True
-			else:
-				clock_wise = False
+			orient_into_inner_loop()
 
-			linear = 0.5-0.0015*error
-			turn = 0.0085*error
-			move_bot(x=linear,y=0,z=turn)
+		#Check for plates in image
+		if(np.sum(gray==0) > 5):
+			#Find CM of P(1-6) Pixels
+			mask = cv2.inRange(gray,0,0)
+			# print(np.sum(mask==255))
+			x,y = centerOfMass(mask)
 
-	#Check for plates in image
-	if(np.sum(gray==0) > 5):
-		#Find CM of P(1-6) Pixels
-		mask = cv2.inRange(gray,0,0)
-		# print(np.sum(mask==255))
-		x,y = centerOfMass(mask)
+			#Masks Blue(Bright and Dark) then blurs to remove noise
+			maskblue = cv2.inRange(cv2_img, (100, 0, 0), (255, 100, 100))
+			mblue = cv2.medianBlur(maskblue,7)
+			xleft = 0
+			xright = 0
+			ytop = 0
+			ybot = 0
 
-		#Masks Blue(Bright and Dark) then blurs to remove noise
-		maskblue = cv2.inRange(cv2_img, (100, 0, 0), (255, 100, 100))
-		mblue = cv2.medianBlur(maskblue,7)
-		xleft = 0
-		xright = 0
-		ytop = 0
-		ybot = 0
+			#Calculates boundaries of plate
+			for i in range(x,0,-1):
+				if(mblue[y][i] == 255):
+					xleft = i
+					break
 
-		#Calculates boundaries of plate
-		for i in range(x,0,-1):
-			if(mblue[y][i] == 255):
-				xleft = i
-				break
+			for i in range(x,width):
+				if(mblue[y][i] == 255):
+					xright = i
+					break
 
-		for i in range(x,width):
-			if(mblue[y][i] == 255):
-				xright = i
-				break
+			for j in range(y,0,-1):
+				if(mblue[j][xright+5] != 255):
+					ytop = j
+					break
 
-		for j in range(y,0,-1):
-			if(mblue[j][xright+5] != 255):
-				ytop = j
-				break
+			for j in range(y,height):
+				if(mblue[j][xright+5] != 255):
+					ybot = j
+					break
 
-		for j in range(y,height):
-			if(mblue[j][xright+5] != 255):
-				ybot = j
-				break
-
-		#Segments plates into chars and saves to desktop
-		if(xleft != 0 and xright != 0 and ytop != 0 and ybot !=0):
-			crop_plate= cv2_img[ytop:ybot, xleft:xright]
-			segment_chars(crop_plate)
+			#Segments plates into chars and saves to desktop
+			if(xleft != 0 and xright != 0 and ytop != 0 and ybot !=0):
+				crop_plate= cv2_img[ytop:ybot, xleft:xright]
+				segment_chars(crop_plate)
   
 
 ##########
@@ -156,6 +167,18 @@ def orient_from_start_into_outer_loop():
 	rospy.sleep(2.3)
 	turn90(True)
 	move_bot()
+
+def orient_into_inner_loop():
+	if(not in_inner_loop):
+		move_bot(x=0.4,y=0,z=0)
+		rospy.sleep(2.5)
+		move_bot(x=0,y=0,z=0.9)
+		rospy.sleep(2)
+	else:
+		move_bot(x=0,y=0,z=0)
+
+	global in_inner_loop
+	in_inner_loop = True
 
 def turn90(CCW):
 	if(CCW):
@@ -201,7 +224,7 @@ def checkPerson(img_color):
 	blue_pix = np.sum(maskPants == 255)
 	move_bot(x=0,y=0,z=0)
 
-	if(blue_pix >= 10):
+	if(blue_pix >= 20):
 		return True
 	else:
 		return False
@@ -253,11 +276,15 @@ def segment_chars(plate):
 	##########################
 	global number
 	global num2
+	global outerLoop
 	try:
 		if(time.time()-start_time>2):
 			number += 1
 			if(number == 6):
 				number = 0
+				outerLoop = False
+				print("Turn into inner")
+
 	except NameError:
 		print()
 
