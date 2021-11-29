@@ -74,7 +74,7 @@ def image_callback(msg):
 		move_bot(x=0,y=0,z=0)
 		if(person):
 			move_bot(x=0.5,y=0,z=0)
-			rospy.sleep(0.5)
+			rospy.sleep(0.4)
 
 	else:
 
@@ -108,6 +108,14 @@ def image_callback(msg):
 		#Inner Loop
 		else:
 			orient_into_inner_loop()
+
+			move_bot(x=0,y=0,z=0)
+			truck = checkTruck(gray)
+			if(truck):
+				rospy.sleep(1)
+				move_bot(x=0.5,y=0,z=0)
+				rospy.sleep(0.5)
+				turn90(True)
 
 		#Check for plates in image
 		if(np.sum(gray==0) > 5):
@@ -170,12 +178,14 @@ def orient_from_start_into_outer_loop():
 
 def orient_into_inner_loop():
 	if(not in_inner_loop):
+		move_bot(x=0.4,y=0,z=-0.1)
+		rospy.sleep(1)
 		move_bot(x=0.4,y=0,z=0)
-		rospy.sleep(2.5)
+		rospy.sleep(1)
 		move_bot(x=0,y=0,z=0.9)
 		rospy.sleep(2)
-	else:
-		move_bot(x=0,y=0,z=0)
+		move_bot(x=0.4,y=0,z=0)
+		rospy.sleep(0.7)
 
 	global in_inner_loop
 	in_inner_loop = True
@@ -224,7 +234,18 @@ def checkPerson(img_color):
 	blue_pix = np.sum(maskPants == 255)
 	move_bot(x=0,y=0,z=0)
 
-	if(blue_pix >= 20):
+	if(blue_pix >= 10):
+		return True
+	else:
+		return False
+
+def checkTruck(img_grey):
+	imgCrop = img_grey[200:600 , 590:690]
+	# cv2.imwrite('/home/fizzer/Desktop/CROPPEDimage.png', imgCrop)  
+	black_pix = np.sum(imgCrop == 0)
+	move_bot(x=0,y=0,z=0)
+	# print(black_pix)
+	if(black_pix >= 15):
 		return True
 	else:
 		return False
