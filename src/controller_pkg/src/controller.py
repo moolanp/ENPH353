@@ -22,7 +22,6 @@ global start_time
 #Used for printing multiple images to desktop 
 number = 0
 
-
 start_sim = time.time()
 outerLoop = True
 in_inner_loop = False
@@ -122,27 +121,14 @@ def image_callback(msg):
 			if(start_pid_inner_loop):
 				maskwhite = cv2.inRange(gray,240,255)
 
-				if(maskwhite[650][640]==255):
+				if(maskwhite[700][640]==255):
 					crop_img_inner= gray[(int)(height/2):(int)(height), 400:1000]
 					maskinner = cv2.inRange(crop_img_inner, 82, 85)
 
 					xcm_in,ycm_in = centerOfMass(maskinner)
 
-					if(xcm_in == 99999 and ycm_in == 99999):
-						if(clock_wise):
-							move_bot(x=0,y=0,z=-0.5)
-						else:
-							move_bot(x=0,y=0,z=0.5)
-
-					else:
-						error = 300-xcm_in
-						global clock_wise
-						if(error<0):
-							clock_wise = True
-						else:
-							clock_wise = False
-
-					turn = 0.032*error
+					error = 300-xcm_in
+					turn = 0.035*error
 					move_bot(x=0,y=0,z=turn)
 
 				else:
@@ -216,14 +202,14 @@ def orient_from_start_into_outer_loop():
 
 def orient_into_inner_loop():
 	if(not in_inner_loop):
-		move_bot(x=0.4,y=0,z=-0.15)
+		move_bot(x=0.4,y=0,z=-0.2)
 		rospy.sleep(1)
 		move_bot(x=0.4,y=0,z=0)
 		rospy.sleep(1)
 		move_bot(x=0,y=0,z=0.9)
 		rospy.sleep(2.2)
 		move_bot(x=0.4,y=0,z=0)
-		rospy.sleep(0.8)
+		rospy.sleep(1)
 		move_bot(x=0,y=0,z=0)
 
 
@@ -240,6 +226,7 @@ def turn90(CCW):
 		move_bot(x=0,y=0,z=-0.85)
 		rospy.sleep(2.2)
 		move_bot()
+
 
 #######
 #IMAGE
