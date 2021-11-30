@@ -14,19 +14,19 @@ from tensorflow.keras import models
 from tensorflow.python.keras.backend import set_session
 from tensorflow.python.keras.models import load_model
 
-#Used to generate images#######
+#Used to generate count plates
 import time
 import csv
-rows = []
 global start_time
-#Used for printing multiple images to desktop - only utilized during testing
-number = 1
-num2 = 0
-#######################
+
+#Used for printing multiple images to desktop 
+number = 0
+
 
 start_sim = time.time()
 outerLoop = True
 in_inner_loop = False
+start_pid_inner_loop = False
 
 sess1 = tf.Session()    
 graph1 = tf.get_default_graph()
@@ -108,17 +108,49 @@ def image_callback(msg):
 		#Inner Loop
 		else:
 			orient_into_inner_loop()
+			global start_pid_inner_loop
 
-			move_bot(x=0,y=0,z=0)
 			truck = checkTruck(gray)
-			if(truck):
+
+			if(truck and (not start_pid_inner_loop)):
 				rospy.sleep(1)
-				move_bot(x=0.5,y=0,z=0)
-				rospy.sleep(0.5)
+				move_bot(x=0.3,y=0,z=0)
+				rospy.sleep(0.75)
 				turn90(True)
+				start_pid_inner_loop = True
+			
+			if(start_pid_inner_loop):
+				maskwhite = cv2.inRange(gray,240,255)
+
+				if(maskwhite[600][640]==255):
+					crop_img_inner= gray[(int)(height/2):(int)(height), 400:1000]
+					maskinner = cv2.inRange(crop_img_inner, 82, 85)
+
+					xcm_in,ycm_in = centerOfMass(maskinner)
+
+					if(xcm_in == 99999 and ycm_in == 99999):
+						if(clock_wise):
+							move_bot(x=0,y=0,z=-0.5)
+						else:
+							move_bot(x=0,y=0,z=0.5)
+
+					else:
+						error = 300-xcm_in
+						global clock_wise
+						if(error<0):
+							clock_wise = True
+						else:
+							clock_wise = False
+
+					turn = 0.032*error
+					move_bot(x=0,y=0,z=turn)
+
+				else:
+					move_bot(x=0.25,y=0,z=0)
+
 
 		#Check for plates in image
-		if(np.sum(gray==0) > 5):
+		if(np.sum(gray==0) > 10):
 			#Find CM of P(1-6) Pixels
 			mask = cv2.inRange(gray,0,0)
 			# print(np.sum(mask==255))
@@ -143,21 +175,27 @@ def image_callback(msg):
 					xright = i
 					break
 
-			for j in range(y,0,-1):
-				if(mblue[j][xright+5] != 255):
-					ytop = j
-					break
+			if(xright+5 < 1280):
+				for j in range(y,0,-1):
+					if(mblue[j][xright+5] != 255):
+						ytop = j
+						break
 
-			for j in range(y,height):
-				if(mblue[j][xright+5] != 255):
-					ybot = j
-					break
+			if(xright+5 < 1280):
+				for j in range(y,height):
+					if(mblue[j][xright+5] != 255):
+						ybot = j
+						break
 
 			#Segments plates into chars and saves to desktop
 			if(xleft != 0 and xright != 0 and ytop != 0 and ybot !=0):
-				crop_plate= cv2_img[ytop:ybot, xleft:xright]
-				segment_chars(crop_plate)
-  
+				
+				if(outerLoop == True):
+					crop_plate= cv2_img[ytop:ybot, xleft:xright]
+					segment_chars(crop_plate)
+  				if(outerLoop == False and start_pid_inner_loop):
+  					crop_plate= cv2_img[ytop:ybot, xleft:xright]
+					segment_chars(crop_plate)
 
 ##########
 #MOVEMENT
@@ -178,14 +216,16 @@ def orient_from_start_into_outer_loop():
 
 def orient_into_inner_loop():
 	if(not in_inner_loop):
-		move_bot(x=0.4,y=0,z=-0.1)
+		move_bot(x=0.4,y=0,z=-0.15)
 		rospy.sleep(1)
 		move_bot(x=0.4,y=0,z=0)
 		rospy.sleep(1)
 		move_bot(x=0,y=0,z=0.9)
 		rospy.sleep(2)
 		move_bot(x=0.4,y=0,z=0)
-		rospy.sleep(0.7)
+		rospy.sleep(0.8)
+		move_bot(x=0,y=0,z=0)
+
 
 	global in_inner_loop
 	in_inner_loop = True
@@ -212,7 +252,6 @@ def centerOfMass(grayImg):
 	cent_x = np.average(mass_y)
 	
 	if(np.sum(grayImg == 255) == 0):
-		print("No white pixels in image")
 		return (99999,99999)
 
 	return((int)(cent_x),(int)(cent_y))
@@ -267,7 +306,11 @@ def segment_chars(plate):
 		return
 
 	#Resizes image, gives better resolution for viewing cropped segments
-	thresh =imutils.resize(plate, width=400)
+	try:
+		thresh =imutils.resize(plate, width=400)
+	except ZeroDivisionError:
+		return
+	
 	height_plate, width_plate,channels = thresh.shape
 	
 	#Manual crop based on ratios of char location
@@ -296,20 +339,19 @@ def segment_chars(plate):
 
 	##########################
 	global number
-	global num2
+	# global num2
 	global outerLoop
+	index_parking = [2,3,4,5,6,1,7,8]
 	try:
 		if(time.time()-start_time>2):
 			number += 1
-			if(number == 6):
-				number = 0
+			if(number == 5):
 				outerLoop = False
-				print("Turn into inner")
 
 	except NameError:
 		print()
 
-	cv2.imwrite('/home/fizzer/Desktop/P{:01d}'.format(number+1)+str(rows[number])[2:6]+'{:01d}.png'.format(num2), plate) 
+	# cv2.imwrite('/home/fizzer/Desktop/P{:01d}'.format(number+1)+str(rows[number])[2:6]+'{:01d}.png'.format(num2), plate) 
 	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char1.png'.format(number), char1_resize)
 	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char2.png'.format(number), char2_resize)
 	# cv2.imwrite('/home/fizzer/Desktop/plate{:03d}char3.png'.format(number), char3_resize)
@@ -323,12 +365,13 @@ def segment_chars(plate):
 	global conv_model
 	global sess1
 	global graph1
+
 	with graph1.as_default():
    		set_session(sess1)
 		y_pred = conv_model.predict(X_dataset)
 	y_pred_as_char = convertBack(y_pred)
 
-	send_plates(y_pred_as_char,(number+1))
+	send_plates(y_pred_as_char,(index_parking[number]))
 
 def send_plates(chars,position):
 	plateSTR = ""
@@ -336,8 +379,6 @@ def send_plates(chars,position):
 		plateSTR = plateSTR + str(chars[i])
 
 	license_plate_pub.publish(team_ID + password + str(position) + ','  + plateSTR)
-	
-	#print(team_ID + password + str(position)+ ',' + plateSTR)
 
 		
 ##########
@@ -353,16 +394,15 @@ def stop():
 def main():
 
 	#####################################
-	global rows
-	with open("/home/fizzer/ros_ws/src/2020_competition/enph353/enph353_gazebo/scripts/plates.csv", 'r') as file:
-		csvreader = csv.reader(file)
-		i=0
-		for row in csvreader:
-			rows.append(row)
-			i+=1
-			if(i == 6):
-				break
-	print(rows)
+	# global rows
+	# with open("/home/fizzer/ros_ws/src/2020_competition/enph353/enph353_gazebo/scripts/plates.csv", 'r') as file:
+	# 	csvreader = csv.reader(file)
+	# 	i=0
+	# 	for row in csvreader:
+	# 		rows.append(row)
+	# 		i+=1
+	# 		if(i == 6):
+	# 			break
 	#######################################
 
 	#Start - Send 0th License Plate
