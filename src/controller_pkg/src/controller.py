@@ -122,7 +122,7 @@ def image_callback(msg):
 			if(start_pid_inner_loop):
 				maskwhite = cv2.inRange(gray,240,255)
 
-				if(maskwhite[600][640]==255):
+				if(maskwhite[650][640]==255):
 					crop_img_inner= gray[(int)(height/2):(int)(height), 400:1000]
 					maskinner = cv2.inRange(crop_img_inner, 82, 85)
 
@@ -151,7 +151,7 @@ def image_callback(msg):
 
 		#Check for plates in image
 		if(np.sum(gray==0) > 10):
-			#Find CM of P(1-6) Pixels
+			#Find CM of P in plate
 			mask = cv2.inRange(gray,0,0)
 			# print(np.sum(mask==255))
 			x,y = centerOfMass(mask)
@@ -221,7 +221,7 @@ def orient_into_inner_loop():
 		move_bot(x=0.4,y=0,z=0)
 		rospy.sleep(1)
 		move_bot(x=0,y=0,z=0.9)
-		rospy.sleep(2)
+		rospy.sleep(2.2)
 		move_bot(x=0.4,y=0,z=0)
 		rospy.sleep(0.8)
 		move_bot(x=0,y=0,z=0)
