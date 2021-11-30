@@ -67,6 +67,54 @@ def image_callback(msg):
 
 	gray = cv2.cvtColor(cv2_img,cv2.COLOR_BGR2GRAY)
 
+#Check for plates in image
+	if(np.sum(gray==0) > 15):
+		#Find CM of P in plate
+		mask = cv2.inRange(gray,0,0)
+		# print(np.sum(mask==255))
+		x,y = centerOfMass(mask)
+
+		#Masks Blue(Bright and Dark) then blurs to remove noise
+		maskblue = cv2.inRange(cv2_img, (100, 0, 0), (255, 100, 100))
+		mblue = cv2.medianBlur(maskblue,7)
+		xleft = 0
+		xright = 0
+		ytop = 0
+		ybot = 0
+
+		#Calculates boundaries of plate
+		for i in range(x,0,-1):
+			if(mblue[y][i] == 255):
+				xleft = i
+				break
+
+		for i in range(x,width):
+			if(mblue[y][i] == 255):
+				xright = i
+				break
+
+		if(xright+5 < 1280):
+			for j in range(y,0,-1):
+				if(mblue[j][xright+5] != 255):
+					ytop = j
+					break
+
+		if(xright+5 < 1280):
+			for j in range(y,height):
+				if(mblue[j][xright+5] != 255):
+					ybot = j
+					break
+
+		#Segments plates into chars and saves to desktop
+		if(xleft != 0 and xright != 0 and ytop != 0 and ybot !=0):
+				
+			if(outerLoop == True):
+				crop_plate= cv2_img[ytop:ybot, xleft:xright]
+				segment_chars(crop_plate)
+  			if(outerLoop == False and start_pid_inner_loop):
+  				crop_plate= cv2_img[ytop:ybot, xleft:xright]
+				segment_chars(crop_plate)	
+
 	#Check for Pedestrian/Crosswalk
 	if(checkRed(cv2_img)):
 		person = checkPerson(cv2_img)
@@ -121,7 +169,7 @@ def image_callback(msg):
 			if(start_pid_inner_loop):
 				maskwhite = cv2.inRange(gray,240,255)
 
-				if(maskwhite[700][640]==255):
+				if(maskwhite[700][640]==255 or maskwhite[675][640]==255 or maskwhite[650][640]==255 ):
 					crop_img_inner= gray[(int)(height/2):(int)(height), 400:1000]
 					maskinner = cv2.inRange(crop_img_inner, 82, 85)
 
@@ -134,54 +182,6 @@ def image_callback(msg):
 				else:
 					move_bot(x=0.25,y=0,z=0)
 
-
-		#Check for plates in image
-		if(np.sum(gray==0) > 10):
-			#Find CM of P in plate
-			mask = cv2.inRange(gray,0,0)
-			# print(np.sum(mask==255))
-			x,y = centerOfMass(mask)
-
-			#Masks Blue(Bright and Dark) then blurs to remove noise
-			maskblue = cv2.inRange(cv2_img, (100, 0, 0), (255, 100, 100))
-			mblue = cv2.medianBlur(maskblue,7)
-			xleft = 0
-			xright = 0
-			ytop = 0
-			ybot = 0
-
-			#Calculates boundaries of plate
-			for i in range(x,0,-1):
-				if(mblue[y][i] == 255):
-					xleft = i
-					break
-
-			for i in range(x,width):
-				if(mblue[y][i] == 255):
-					xright = i
-					break
-
-			if(xright+5 < 1280):
-				for j in range(y,0,-1):
-					if(mblue[j][xright+5] != 255):
-						ytop = j
-						break
-
-			if(xright+5 < 1280):
-				for j in range(y,height):
-					if(mblue[j][xright+5] != 255):
-						ybot = j
-						break
-
-			#Segments plates into chars and saves to desktop
-			if(xleft != 0 and xright != 0 and ytop != 0 and ybot !=0):
-				
-				if(outerLoop == True):
-					crop_plate= cv2_img[ytop:ybot, xleft:xright]
-					segment_chars(crop_plate)
-  				if(outerLoop == False and start_pid_inner_loop):
-  					crop_plate= cv2_img[ytop:ybot, xleft:xright]
-					segment_chars(crop_plate)
 
 ##########
 #MOVEMENT
