@@ -177,14 +177,14 @@ def image_callback(msg):
 			if(start_pid_inner_loop):
 				maskwhite = cv2.inRange(gray,240,255)
 
-				if(maskwhite[700][640]==255 or maskwhite[690][640]==255 or maskwhite[680][640]==255 or maskwhite[670][640]==255):
+				if(maskwhite[700][640]==255 or maskwhite[690][640]==255 or maskwhite[680][640]==255 or maskwhite[670][640]==255 or maskwhite[675][640]==255 or maskwhite[660][640]==255  ):
 					crop_img_inner= gray[(int)(height/2):(int)(height), 400:1000]
 					maskinner = cv2.inRange(crop_img_inner, 82, 85)
 
 					xcm_in,ycm_in = centerOfMass(maskinner)
 
 					error = 300-xcm_in
-					turn = 0.036*error
+					turn = 0.035*error
 					move_bot(x=0,y=0,z=turn)
 
 				else:
