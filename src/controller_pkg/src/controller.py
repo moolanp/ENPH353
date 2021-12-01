@@ -19,10 +19,10 @@ import time
 import csv
 global start_time
 
-#Used for printing multiple images to desktop 
+sim_Done = False
 number = 0
-
 start_sim = time.time()
+
 outerLoop = True
 in_inner_loop = False
 start_pid_inner_loop = False
@@ -46,7 +46,6 @@ width = 1280
 # Load CNN Model
 conv_model = models.load_model('/home/fizzer/ros_ws/src/cnn_trainer/Models/my_model.h5')
 
-
 ###############################################
 #Paul Moolan, Steven Brown
 
@@ -67,11 +66,16 @@ def image_callback(msg):
 
 	gray = cv2.cvtColor(cv2_img,cv2.COLOR_BGR2GRAY)
 
+	global sim_Done
+	global start_sim
+	if(not (sim_Done) and time.time() - start_sim >= 73 ):
+		stop()
+		sim_Done = True
+
 #Check for plates in image
-	if(np.sum(gray==0) > 15):
+	if(np.sum(gray==0) > 10):
 		#Find CM of P in plate
 		mask = cv2.inRange(gray,0,0)
-		# print(np.sum(mask==255))
 		x,y = centerOfMass(mask)
 
 		#Masks Blue(Bright and Dark) then blurs to remove noise
@@ -176,7 +180,7 @@ def image_callback(msg):
 					xcm_in,ycm_in = centerOfMass(maskinner)
 
 					error = 300-xcm_in
-					turn = 0.035*error
+					turn = 0.036*error
 					move_bot(x=0,y=0,z=turn)
 
 				else:
