@@ -68,6 +68,10 @@ def image_callback(msg):
 
 	global sim_Done
 	global start_sim
+	global number
+	if(number == 7):
+		stop()
+
 	if(not (sim_Done) and time.time() - start_sim >= 73 ):
 		stop()
 		sim_Done = True
@@ -173,7 +177,7 @@ def image_callback(msg):
 			if(start_pid_inner_loop):
 				maskwhite = cv2.inRange(gray,240,255)
 
-				if(maskwhite[700][640]==255 or maskwhite[675][640]==255 or maskwhite[650][640]==255 ):
+				if(maskwhite[700][640]==255 or maskwhite[690][640]==255 or maskwhite[680][640]==255 or maskwhite[670][640]==255):
 					crop_img_inner= gray[(int)(height/2):(int)(height), 400:1000]
 					maskinner = cv2.inRange(crop_img_inner, 82, 85)
 
@@ -380,7 +384,7 @@ def send_plates(chars,position):
 def stop():
 	move_bot(0,0,0)
 	license_plate_pub.publish(team_ID + password + '-1,' + 'ABCD')
-	rospy.sleep(1)
+	rospy.sleep(10)
 
 def main():
 
